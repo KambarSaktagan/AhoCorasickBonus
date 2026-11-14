@@ -1,19 +1,22 @@
-# Bonus Task: Aho–Corasick Algorithm (Java)
+# Aho-Corasick Algorithm 
 
-## What this project does
-This program searches for many words (patterns) in one text. Aho–Corasick checks the text once using a **trie** and **failure links**. It finds all matches, including overlapping matches. A separate **KMP** implementation checks each pattern one at a time for comparison.
+## About this project
 
-No external libraries are needed. All source files are Java.
+This is my Java implementation of the **Aho-Corasick algorithm**. It finds several words (patterns) in a text at the same time. I also implemented **KMP** so I could compare their running times.
 
-## Files
-- `src/AhoCorasick.java` — builds a trie, computes failure/output links, searches for every occurrence.
-- `src/KMP.java` — searches the same text once per pattern.
-- `src/Tests.java` — known examples, edge cases and 100 deterministic randomized comparisons.
-- `src/Benchmark.java` — nine experiments, five timed runs each and CSV output.
-- `results/benchmark.csv` — measured timing results from a sample run.
+The program finds all matches, even when they overlap. Everything is written in Java, without extra libraries.
+
+## Project files
+
+- `src/AhoCorasick.java` — Aho-Corasick algorithm
+- `src/KMP.java` — KMP algorithm
+- `src/Tests.java` — tests to check that the results are correct
+- `src/Benchmark.java` — runs the speed experiments
+- `results/benchmark.csv` — saved experiment results
 
 ## How to run
-Install JDK 17 or later. From the project folder:
+
+Use **Java 17 or newer**. Open a terminal in the project folder and run:
 
 ```bash
 javac -d out src/*.java
@@ -21,63 +24,75 @@ java -cp out Tests
 java -cp out Benchmark
 ```
 
-On Windows (PowerShell), the same commands work when Java is installed and on `PATH`. The benchmark overwrites `results/benchmark.csv` with results from your computer.
+The last command runs the experiments again and updates `results/benchmark.csv`.
 
-## Aho–Corasick: how it works
-1. **Trie**: Insert each pattern letter by letter. Patterns with the same prefix share trie nodes. At terminal nodes we store pattern IDs.
-2. **Failure links**: Use breadth-first search (BFS) to connect each node to the longest proper suffix of its current prefix that is also a trie prefix. If the next text letter has no edge, follow failure links instead of starting over.
-3. **Output links**: Some failure ancestors also finish patterns. An output link skips to the closest suffix node that ends a pattern. This lets the search report shorter matching patterns without copying match lists to every state.
-4. **Search**: Read each text character, change the current trie node, and report all patterns ending there and at output-linked nodes. Each match includes its **zero-based starting index**.
+## How Aho-Corasick works
 
-For example, in `ahishers` with patterns `he`, `she`, `his`, `hers`, the results are `his@1`, `she@3`, `he@4`, and `hers@4` (where `@` means 'starts at index').
+The algorithm has four main parts:
 
-## Complexity
+1. **Trie:** First, all patterns are added to a tree. Patterns that start with the same letters can share part of the tree.
+2. **Failure links:** These links tell us where to continue if the next character does not match. They are built using BFS (breadth-first search).
+3. **Output links:** They help find extra matches when one pattern ends inside another pattern.
+4. **Search:** The algorithm goes through the text and reports every pattern it finds, including its starting position.
+
+For example, if the patterns are `he`, `she`, `his`, and `hers`, searching `ahishers` finds:
+
+- `his` at index 1
+- `she` at index 3
+- `he` at index 4
+- `hers` at index 4
+
+Positions start at **0**.
+
+## Time and space complexity
+
 Let:
-- `L` = total number of characters in all patterns;
-- `n` = text length;
-- `d` = maximum pattern length;
-- `z` = number of matches found;
-- `p` = number of patterns.
 
-**Aho–Corasick:**
-- Building the trie: expected `O(L)` time using hash-map transitions.
-- Building failure links: often close to `O(L)` in practice. This straightforward Java version walks failure links during BFS, so a conservative worst-case bound is `O(L * d)`.
-- Searching: expected `O(n + z)` with hash-map lookups, using failure and output links; each match must be reported.
-- Memory: `O(L + p)` for nodes, edges, terminal pattern IDs, failure/output pointers, and stored patterns, plus memory used by any results the caller chooses to store. Here, the benchmark counts matches without keeping a large result list.
+- `L` = total length of all patterns
+- `n` = length of the text
+- `p` = number of patterns
+- `d` = length of the longest pattern
+- `z` = number of matches
 
-**KMP run separately for every pattern:**
-- For each pattern, building its prefix table and searching takes `O(length of pattern + n)` time.
-- For all patterns, total time is `O(L + p * n)`.
-- KMP only needs `O(d)` extra working memory per pattern when executed sequentially, excluding the input text and pattern collection.
+For **Aho-Corasick**:
 
-The key advantage of Aho–Corasick is that the text is processed once for all patterns. KMP searches the whole text separately for every pattern. For one pattern, KMP is easier to write and has low setup cost. Aho–Corasick uses more memory for the trie and needs preprocessing. If patterns change constantly or there are very few patterns, KMP may be practical.
+- Building the trie takes about **O(L)** time.
+- Building failure links is usually fast; this implementation has a conservative worst-case bound of **O(L × d)**.
+- Searching takes **O(n + z)** expected time.
+- The algorithm needs **O(L + p)** memory for the trie, links, and patterns (not counting stored search results).
+
+For **KMP**, searching separately for every pattern takes **O(L + p × n)** total time. Its extra working memory is **O(d)** when patterns are processed one by one.
+
+The main difference is simple: **Aho-Corasick processes the text once for all patterns**, while **KMP processes the text again for each pattern**.
 
 ## Experiments
-The benchmark tests every combination of:
-- Pattern counts: **10, 100, 1,000**.
-- Text lengths: **1,000, 10,000, 100,000**.
 
-For each of the 9 combinations:
-1. Generate a fixed-seed random text (alphabet `a` to `f`) and unique patterns of length 5–12. About one fifth of the patterns are sampled from the text so there are some guaranteed matches.
-2. Perform one untimed warm-up execution for each algorithm.
-3. Repeat **five measured executions** per algorithm with `System.nanoTime()`.
-4. Measure **preprocessing + full search** for both algorithms to make the total-work comparison consistent.
-5. Divide accumulated nanoseconds by five and convert to milliseconds. Confirm that both algorithms return the same number of matches.
+I tested 3 numbers of patterns (**10, 100, 1,000**) and 3 text lengths (**1,000, 10,000, 100,000** characters). That gives **9 test cases**.
 
-Results from a sample run (JDK 21, Linux container; values will vary by machine, JVM warm-up, and system load):
+For each case, the program generates test data, does one warm-up run, and measures both algorithms **5 times** with `System.nanoTime()`. The table shows the average running time, including building the data structures and searching. Both algorithms are checked to make sure they find the same number of matches.
 
-| Patterns | Text characters | Aho–Corasick avg (ms) | KMP avg (ms) | Matches |
-|---:|---:|---:|---:|---:|
-| 10 | 1,000 | 0.658 | 1.025 | 2 |
-| 10 | 10,000 | 1.134 | 1.803 | 5 |
-| 10 | 100,000 | 2.388 | 4.574 | 15 |
-| 100 | 1,000 | 0.542 | 0.405 | 25 |
-| 100 | 10,000 | 0.731 | 4.478 | 39 |
-| 100 | 100,000 | 3.376 | 46.361 | 198 |
-| 1,000 | 1,000 | 2.733 | 4.442 | 221 |
-| 1,000 | 10,000 | 1.217 | 47.030 | 372 |
-| 1,000 | 100,000 | 4.787 | 443.829 | 2,063 |
+These are the results from one run on **Java 21 (Linux)**. Times can be different on another computer.
 
-### Discussion
-The results show a strong advantage for Aho–Corasick when there are many patterns and the text is long. For 1,000 patterns and 100,000 characters, the sample run measured around 4.8 ms for Aho–Corasick compared with 443.8 ms for KMP. For very small cases, the difference can be small, and KMP can occasionally win because it requires less setup. Tiny measurements can be noisy, so rerun the benchmark on your own machine to confirm trends.
+| Patterns | Text length | Aho-Corasick (ms) | KMP (ms) |
+|---:|---:|---:|---:|
+| 10 | 1,000 | 0.658 | 1.025 |
+| 10 | 10,000 | 1.134 | 1.803 |
+| 10 | 100,000 | 2.388 | 4.574 |
+| 100 | 1,000 | 0.542 | 0.405 |
+| 100 | 10,000 | 0.731 | 4.478 |
+| 100 | 100,000 | 3.376 | 46.361 |
+| 1,000 | 1,000 | 2.733 | 4.442 |
+| 1,000 | 10,000 | 1.217 | 47.030 |
+| 1,000 | 100,000 | 4.787 | 443.829 |
 
+## What I noticed
+
+When there are only a few patterns, both algorithms are quite fast. Sometimes KMP is a little faster because it does not need to build a trie.
+
+But when the number of patterns increases, **Aho-Corasick is much faster**. For example, with 1,000 patterns and a text of 100,000 characters, Aho-Corasick took about **4.8 ms**, while KMP took about **444 ms**.
+
+**Aho-Corasick** is a good choice when we need to search for many patterns at once. Its downside is that it needs more memory and takes some time to build the trie and links. **KMP** is simpler and works well for one pattern or just a few patterns, but it gets slower when it has to search the same text many times.
+
+## Submission
+
+The repository contains the Java code, tests, benchmark, saved results, and this README. The separate one-page handwritten explanation must be written independently, as required by the assignment.
